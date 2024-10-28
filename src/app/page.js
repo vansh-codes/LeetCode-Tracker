@@ -1,101 +1,121 @@
-import Image from "next/image";
+"use client";
+
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import { motion } from "framer-motion";
+import Heatmap from "../../components/HeatMap";
+import ProblemList from "../../components/ProblemList";
+import { Calendar, Code2, Loader2 } from "lucide-react";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    const [heatmapData, setHeatmapData] = useState({});
+    const [loading, setLoading] = useState(true);
+    const [selectedDate, setSelectedDate] = useState(null);
+    const [commitData, setCommitData] = useState(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await axios.get("./api/github");
+                const data = await response.data;
+                setHeatmapData(data);
+            } catch (error) {
+                console.error("Error fetching data:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
+
+    useEffect(() => {
+        setCommitData(null);
+        const fetchCommitData = async () => {
+            if (selectedDate && heatmapData[selectedDate]) {
+                const commitsData = heatmapData[selectedDate];
+                try {
+                    const response = await axios.post("./api/commit", {
+                        commits: heatmapData[selectedDate],
+                    });
+                    const data = await response.data;
+                    setCommitData(data);
+                } catch (error) {
+                    console.error("Error fetching commit data:", error);
+                }
+            }
+        };
+        fetchCommitData();
+    }, [selectedDate, heatmapData]);
+
+    const handleClickDay = (date) => {
+        setSelectedDate(date);
+    };
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white p-8">
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="max-w-6xl mx-auto"
+            >
+                <h1 className="text-4xl font-bold mb-8 flex items-center">
+                    <Calendar className="mr-2" /> LeetCode Heatmap
+                </h1>
+                {loading ? (
+                    <div className="flex justify-center items-center h-64">
+                        <Loader2 className="animate-spin h-8 w-8 mr-2" />
+                        <p className="text-xl">Loading data...</p>
+                    </div>
+                ) : (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.5 }}
+                    >
+                        <Heatmap
+                            heatmapData={heatmapData}
+                            onClickDay={handleClickDay}
+                        />
+                    </motion.div>
+                )}
+                {selectedDate && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5 }}
+                        className="mt-8 relative"
+                    >
+                        <button
+                            onClick={() => setSelectedDate(null)}
+                            className="absolute top-0 right-0 p-1 text-gray-100 hover:text-gray-300"
+                            aria-label="Close"
+                        >
+                            &#10005;
+                        </button>
+                        <h2 className="text-2xl font-semibold mb-4 flex items-center">
+                            <Code2 className="mr-2" /> Problems Solved on{" "}
+                            {selectedDate}
+                        </h2>
+                        {heatmapData[selectedDate] === undefined ? (
+                            <div className="flex justify-center items-center h-32">
+                                <p className="text-lg">
+                                    No commits available for {selectedDate}
+                                </p>
+                            </div>
+                        ) : commitData ? (
+                            <ProblemList problems={commitData} />
+                        ) : (
+                            <div className="flex justify-center items-center h-32">
+                                <Loader2 className="animate-spin h-6 w-6 mr-2" />
+                                <p className="text-lg">
+                                    Loading commit data...
+                                </p>
+                            </div>
+                        )}
+                    </motion.div>
+                )}
+            </motion.div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+    );
 }
